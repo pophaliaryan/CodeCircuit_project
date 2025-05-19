@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hydration Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M50,0 Q75,25 50,50 Q25,75 50,100 Q75,75 50,50 Q25,25 50,0" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></svg>');
+            opacity: 0.1;
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+            animation: rotate 20s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        h1 {
+            color: #006064;
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        h1::after {
+            content: '💧';
+            position: absolute;
+            top: -20px;
+            right: -20px;
+            font-size: 1.5rem;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .tracker-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+            position: relative;
+        }
+
+        .body-container {
+            position: relative;
+            width: 300px;
+            height: 500px;
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));
+            background: transparent;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .body-image {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            z-index: 1;
+            filter: brightness(0.9);
+            pointer-events: none;
+        }
+
+        .water-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            mask-image: url('freepik__create-a-clear-black-outline-of-the-human-silhouet__62316.png');
+            mask-size: 100% 100%;
+            mask-repeat: no-repeat;
+            mask-position: center;
+            -webkit-mask-image: url('freepik__create-a-clear-black-outline-of-the-human-silhouet__62316.png');
+            -webkit-mask-size: 100% 100%;
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            overflow: hidden;
+            mix-blend-mode: multiply;
+        }
+
+        .water-fill {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: linear-gradient(to top, 
+                rgba(79, 195, 247, 0.9),
+                rgba(129, 212, 250, 1));
+            transition: height 1s ease-in-out;
+            animation: waterWave 3s ease-in-out infinite;
+            box-shadow: 0 0 20px rgba(79, 195, 247, 0.3);
+        }
+
+        @keyframes waterWave {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .water-surface {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+            transition: bottom 1s ease-in-out;
+        }
+
+        .checkpoints {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(224, 247, 250, 0.5);
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+        }
+
+        .checkpoint {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.8rem;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .checkpoint.completed {
+            background: rgba(79, 195, 247, 0.2);
+            border-left: 4px solid #4fc3f7;
+        }
+
+        .checkpoint-icon {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 97, 100, 0.1);
+            border-radius: 50%;
+            font-size: 1.2rem;
+        }
+
+        .checkpoint.completed .checkpoint-icon {
+            background: #4fc3f7;
+            color: white;
+        }
+
+        .checkpoint-info {
+            flex: 1;
+        }
+
+        .checkpoint-info h4 {
+            margin: 0;
+            color: #006064;
+        }
+
+        .checkpoint-info p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #546e7a;
+        }
+
+        .checkpoint-progress {
+            width: 60px;
+            height: 4px;
+            background: rgba(0, 97, 100, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .checkpoint-progress-bar {
+            height: 100%;
+            background: #4fc3f7;
+            transition: width 0.3s ease;
+        }
+
+        .achievement-badge {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: none;
+            animation: slideIn 0.5s ease-out;
+            z-index: 1000;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        .level-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 97, 100, 0.9);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
+            z-index: 3;
+        }
+
+        .water-droplet {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(79, 195, 247, 0.6);
+            border-radius: 50%;
+            animation: floatDroplet 3s ease-in-out infinite;
+            z-index: 3;
+        }
+
+        @keyframes floatDroplet {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(180deg); }
+        }
+
+        .progress-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            z-index: 3;
+        }
+
+        .progress-ring circle {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .progress-ring .background {
+            stroke: rgba(0, 97, 100, 0.1);
+        }
+
+        .progress-ring .progress {
+            stroke: #006064;
+            transition: stroke-dashoffset 1s ease-in-out;
+        }
+
+        .achievement-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(224, 247, 250, 0.5);
+            border-radius: 15px;
+        }
+
+        .achievement-item {
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .achievement-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .achievement-item.locked {
+            opacity: 0.5;
+            filter: grayscale(1);
+        }
+
+        .stats {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1rem;
+        }
+
+        .stat-box {
+            background: rgba(224, 247, 250, 0.8);
+            padding: 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+            min-width: 150px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: transform 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.5s ease;
+        }
+
+        .stat-box:hover::before {
+            transform: translateX(100%);
+        }
+
+        .stat-box:hover {
+            transform: translateY(-5px);
+        }
+
+        .input-section {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            background: rgba(224, 247, 250, 0.5);
+            padding: 1.5rem;
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+        }
+
+        .quick-add {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .quick-add-btn {
+            padding: 0.5rem;
+            background: rgba(0, 97, 100, 0.1);
+            border: 1px solid rgba(0, 97, 100, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .quick-add-btn:hover {
+            background: rgba(0, 97, 100, 0.2);
+            transform: translateY(-2px);
+        }
+
+        input {
+            padding: 0.8rem;
+            border: 2px solid #b2ebf2;
+            border-radius: 10px;
+            font-size: 1rem;
+            background: rgba(255,255,255,0.9);
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #006064;
+            box-shadow: 0 0 10px rgba(0,97,100,0.2);
+        }
+
+        button {
+            padding: 0.8rem 1.5rem;
+            background: #006064;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background: #00838f;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .milestone-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            display: none;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            animation: popIn 0.5s ease-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .milestone-popup h3 {
+            color: #006064;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .milestone-popup p {
+            color: #546e7a;
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+        }
+
+        .close-popup {
+            background: #006064;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .close-popup:hover {
+            background: #00838f;
+            transform: translateY(-2px);
+        }
+
+        .log-section {
+            margin-top: 2rem;
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(224, 247, 250, 0.5);
+            padding: 1rem;
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+        }
+
+        .log-entry {
+            padding: 0.8rem;
+            border-bottom: 1px solid rgba(178, 235, 242, 0.5);
+            display: flex;
+            justify-content: space-between;
+            transition: background 0.3s ease;
+        }
+
+        .log-entry:hover {
+            background: rgba(255,255,255,0.5);
+        }
+
+        .streak-badge {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: #ff9800;
+            color: white;
+            padding: 0.3rem 0.6rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .motivational-quote {
+            text-align: center;
+            color: #006064;
+            font-style: italic;
+            margin: 1rem 0;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .motivational-quote:hover {
+            opacity: 1;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .stats {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .input-section {
+                flex-direction: column;
+            }
+
+            .body-container {
+                width: 200px;
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hydration Tracker</h1>
+        <div class="tracker-container">
+            <div class="body-container">
+                <img src="freepik__create-a-clear-black-outline-of-the-human-silhouet__62316.png" alt="Human Body Outline" class="body-image">
+                <div class="water-container">
+                    <div class="water-fill" style="height: 0%"></div>
+                    <div class="water-surface" style="bottom: 0%"></div>
+                </div>
+                <div class="level-indicator">Level 1</div>
+            </div>
+            <div class="stats">
+                <div class="stat-box">
+                    <h3>Today's Intake</h3>
+                    <p id="total-intake">0 ml</p>
+                </div>
+                <div class="stat-box">
+                    <h3>Goal</h3>
+                    <p>2000 ml</p>
+                </div>
+            </div>
+            <div class="input-section">
+                <input type="number" id="water-input" placeholder="Enter ml" min="0">
+                <button onclick="addWater()">Add Water</button>
+                <button onclick="resetTracker()" style="background: #e53935;">Reset</button>
+                <div class="quick-add">
+                    <button class="quick-add-btn" onclick="quickAdd(250)">250ml</button>
+                    <button class="quick-add-btn" onclick="quickAdd(500)">500ml</button>
+                    <button class="quick-add-btn" onclick="quickAdd(750)">750ml</button>
+                </div>
+            </div>
+            <div class="checkpoints">
+                <div class="checkpoint" data-percentage="25">
+                    <div class="checkpoint-icon">💧</div>
+                    <div class="checkpoint-info">
+                        <h4>Skin Hydration</h4>
+                        <p>Your skin starts feeling better</p>
+                    </div>
+                    <div class="checkpoint-progress">
+                        <div class="checkpoint-progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="checkpoint" data-percentage="50">
+                    <div class="checkpoint-icon">🌊</div>
+                    <div class="checkpoint-info">
+                        <h4>Improved Digestion</h4>
+                        <p>Your digestive system is working better</p>
+                    </div>
+                    <div class="checkpoint-progress">
+                        <div class="checkpoint-progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="checkpoint" data-percentage="75">
+                    <div class="checkpoint-icon">⚡</div>
+                    <div class="checkpoint-info">
+                        <h4>Energy Boost</h4>
+                        <p>Feel the energy flowing through you</p>
+                    </div>
+                    <div class="checkpoint-progress">
+                        <div class="checkpoint-progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="checkpoint" data-percentage="100">
+                    <div class="checkpoint-icon">🎯</div>
+                    <div class="checkpoint-info">
+                        <h4>Optimal Hydration</h4>
+                        <p>Perfect hydration achieved!</p>
+                    </div>
+                    <div class="checkpoint-progress">
+                        <div class="checkpoint-progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="log-section">
+                <h3>Intake Log</h3>
+                <div id="log-entries"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="achievement-badge" id="achievement-badge">
+        <h3>🏆 Achievement Unlocked!</h3>
+        <p id="achievement-text"></p>
+    </div>
+
+    <div class="milestone-popup" id="milestone-popup">
+        <h3 id="milestone-title"></h3>
+        <p id="milestone-description"></p>
+        <button class="close-popup" onclick="closePopup()">Got it!</button>
+    </div>
+
+    <script>
+        const GOAL = 2000;
+        let currentIntake = 0;
+        let streak = 0;
+        const milestones = {
+            25: {
+                title: "💧 25% - Skin Hydration Begins!",
+                description: "Your skin is starting to feel the benefits of proper hydration!"
+            },
+            50: {
+                title: "💧 50% - Improved Digestion!",
+                description: "Your digestive system is working more efficiently!"
+            },
+            75: {
+                title: "💧 75% - Energy Boost!",
+                description: "Feel that energy? Your body is well-hydrated!"
+            },
+            100: {
+                title: "💧 100% - Optimal Hydration!",
+                description: "Congratulations! You've reached your daily hydration goal!"
+            }
+        };
+
+        const motivationalQuotes = [
+            "Stay hydrated, stay healthy! 💧",
+            "Water is life! Keep going! 🌊",
+            "Every drop counts! 💦",
+            "You're doing great! Keep hydrating! 💪",
+            "Water is the best medicine! 💊",
+            "Stay refreshed, stay focused! 🎯"
+        ];
+
+        const achievements = {
+            'first-drink': {
+                title: 'First Sip',
+                description: 'Started your hydration journey!',
+                icon: '💧'
+            },
+            'streak-3': {
+                title: '3-Day Streak',
+                description: 'Maintained hydration for 3 days!',
+                icon: '🔥'
+            },
+            'goal-reached': {
+                title: 'Goal Getter',
+                description: 'Reached your daily hydration goal!',
+                icon: '🎯'
+            }
+        };
+
+        let level = 1;
+        let xp = 0;
+        const xpPerDrink = 10;
+        const xpToNextLevel = 100;
+
+        function updateMotivationalQuote() {
+            const quoteElement = document.getElementById('motivational-quote');
+            const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+            quoteElement.textContent = randomQuote;
+        }
+
+        function quickAdd(amount) {
+            document.getElementById('water-input').value = amount;
+            addWater();
+        }
+
+        function addWater() {
+            const input = document.getElementById('water-input');
+            const amount = parseInt(input.value) || 0;
+            
+            if (amount <= 0) {
+                alert('Please enter a valid amount');
+                return;
+            }
+
+            currentIntake += amount;
+            xp += xpPerDrink;
+            
+            // Check for level up
+            if (xp >= xpToNextLevel * level) {
+                levelUp();
+            }
+
+            updateDisplay();
+            addLogEntry(amount);
+            checkMilestones();
+            updateMotivationalQuote();
+            checkAchievements();
+            input.value = '';
+
+            // Add water droplet animation
+            createWaterDroplet();
+
+            // Check for streak
+            if (currentIntake >= GOAL) {
+                streak++;
+                if (streak >= 3) {
+                    unlockAchievement('streak-3');
+                }
+            }
+        }
+
+        function levelUp() {
+            level++;
+            showAchievement('Level Up!', `Reached level ${level}! Keep hydrating!`, '⭐');
+            document.querySelector('.level-indicator').textContent = `Level ${level}`;
+        }
+
+        function createWaterDroplet() {
+            const droplet = document.createElement('div');
+            droplet.className = 'water-droplet';
+            droplet.style.left = `${Math.random() * 100}%`;
+            droplet.style.top = '0';
+            document.querySelector('.body-container').appendChild(droplet);
+            
+            setTimeout(() => {
+                droplet.remove();
+            }, 3000);
+        }
+
+        function checkAchievements() {
+            if (currentIntake > 0 && !document.querySelector('[data-achievement="first-drink"]').classList.contains('unlocked')) {
+                unlockAchievement('first-drink');
+            }
+            if (currentIntake >= GOAL && !document.querySelector('[data-achievement="goal-reached"]').classList.contains('unlocked')) {
+                unlockAchievement('goal-reached');
+            }
+        }
+
+        function unlockAchievement(achievementId) {
+            const achievement = achievements[achievementId];
+            const achievementElement = document.querySelector(`[data-achievement="${achievementId}"]`);
+            
+            if (achievementElement && !achievementElement.classList.contains('unlocked')) {
+                achievementElement.classList.remove('locked');
+                showAchievement(achievement.title, achievement.description, achievement.icon);
+            }
+        }
+
+        function showAchievement(title, description, icon) {
+            const badge = document.getElementById('achievement-badge');
+            const text = document.getElementById('achievement-text');
+            
+            badge.innerHTML = `
+                <h3>${icon} ${title}</h3>
+                <p>${description}</p>
+            `;
+            
+            badge.style.display = 'block';
+            setTimeout(() => {
+                badge.style.display = 'none';
+            }, 3000);
+        }
+
+        function updateDisplay() {
+            const percentage = Math.min((currentIntake / GOAL) * 100, 100);
+            document.querySelector('.water-fill').style.height = `${percentage}%`;
+            document.querySelector('.water-surface').style.bottom = `${percentage}%`;
+            document.getElementById('total-intake').textContent = `${currentIntake} ml`;
+            updateCheckpoints(percentage);
+        }
+
+        function updateCheckpoints(percentage) {
+            const checkpoints = document.querySelectorAll('.checkpoint');
+            checkpoints.forEach(checkpoint => {
+                const checkpointPercentage = parseInt(checkpoint.dataset.percentage);
+                const progressBar = checkpoint.querySelector('.checkpoint-progress-bar');
+                const progress = Math.min((percentage / checkpointPercentage) * 100, 100);
+                
+                progressBar.style.width = `${progress}%`;
+                
+                if (percentage >= checkpointPercentage) {
+                    checkpoint.classList.add('completed');
+                } else {
+                    checkpoint.classList.remove('completed');
+                }
+            });
+        }
+
+        function addLogEntry(amount) {
+            const logEntries = document.getElementById('log-entries');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `
+                <span>${time}</span>
+                <span>+${amount} ml</span>
+            `;
+            logEntries.insertBefore(entry, logEntries.firstChild);
+        }
+
+        function checkMilestones() {
+            const percentage = Math.min((currentIntake / GOAL) * 100, 100);
+            const milestone = Math.floor(percentage / 25) * 25;
+            
+            if (milestone > 0 && milestone <= 100 && percentage >= milestone && percentage < milestone + 1) {
+                showMilestone(milestone);
+            }
+        }
+
+        function showMilestone(percentage) {
+            const popup = document.getElementById('milestone-popup');
+            const title = document.getElementById('milestone-title');
+            const description = document.getElementById('milestone-description');
+            
+            title.textContent = milestones[percentage].title;
+            description.textContent = milestones[percentage].description;
+            popup.style.display = 'block';
+        }
+
+        function closePopup() {
+            document.getElementById('milestone-popup').style.display = 'none';
+        }
+
+        function resetTracker() {
+            if (confirm('Are you sure you want to reset your progress?')) {
+                currentIntake = 0;
+                streak = 0;
+                xp = 0;
+                level = 1;
+                updateDisplay();
+                document.getElementById('log-entries').innerHTML = '';
+                document.getElementById('streak-badge').style.display = 'none';
+                document.querySelector('.level-indicator').textContent = 'Level 1';
+                updateCheckpoints(0);
+            }
+        }
+
+        // Add keyboard support
+        document.getElementById('water-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addWater();
+            }
+        });
+
+        // Initialize
+        updateMotivationalQuote();
+        updateCheckpoints(0);
+    </script>
+</body>
+</html>
